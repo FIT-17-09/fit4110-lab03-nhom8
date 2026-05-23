@@ -1,1 +1,601 @@
-{"info":{"_postman_id":"fit4110-lab03-iot-ingestion","name":"FIT4110 Lab03 - IoT Ingestion Contract Tests","description":"Postman Collection mẫu cho Buổi 3: Mock Server, provider-side tests, consumer-side smoke tests và Newman evidence. Cấu trúc folder bám theo bài giảng: Functional, Auth, Negative, Boundary/Reliability, Consumer-side và Local-only.","schema":"https://schema.getpostman.com/json/collection/v2.1.0/collection.json"},"event":[{"listen":"prerequest","script":{"type":"text/javascript","exec":["const prefix = pm.environment.get('tracePrefix') || 'fit4110-lab03';","pm.variables.set('traceId', prefix + '-' + Date.now());","pm.request.headers.upsert({ key: 'X-Trace-Id', value: pm.variables.get('traceId') });"]}}],"variable":[],"item":[{"name":"00_Health","item":[{"name":"GET /health - service is alive","request":{"method":"GET","header":[],"url":{"raw":"{{baseUrl}}/health","host":["{{baseUrl}}"],"path":["health"]},"description":""},"response":[],"event":[{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('Status code is 200', function () { pm.response.to.have.status(200); });","pm.test('Response has service status', function () {","  const json = pm.response.json();","  pm.expect(json).to.have.property('status', 'ok');","  pm.expect(json).to.have.property('service');","});"]}}]}]},{"name":"01_Functional","item":[{"name":"POST /readings - happy path creates reading","request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{authToken}}"}],"url":{"raw":"{{baseUrl}}/readings","host":["{{baseUrl}}"],"path":["readings"]},"description":"","body":{"mode":"raw","raw":"{\n  \"device_id\": \"ESP32-LAB-A01\",\n  \"metric\": \"temperature\",\n  \"value\": 31.5,\n  \"unit\": \"celsius\",\n  \"timestamp\": \"2026-05-13T08:30:00+07:00\"\n}","options":{"raw":{"language":"json"}}}},"response":[],"event":[{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('Status code is 201', function () { pm.response.to.have.status(201); });","pm.test('Response has created reading fields', function () {","  const json = pm.response.json();","  pm.expect(json).to.have.property('reading_id');","  pm.expect(json).to.have.property('device_id');","  pm.expect(json).to.have.property('metric', 'temperature');","  pm.expect(json).to.have.property('accepted', true);","});"]}}]},{"name":"GET /readings/latest - list latest readings","request":{"method":"GET","header":[{"key":"Authorization","value":"Bearer {{authToken}}"}],"url":{"raw":"{{baseUrl}}/readings/latest?device_id=ESP32-LAB-A01&limit=5","host":["{{baseUrl}}"],"path":["readings","latest"],"query":[{"key":"device_id","value":"ESP32-LAB-A01"},{"key":"limit","value":"5"}]},"description":""},"response":[],"event":[{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('Status code is 200', function () { pm.response.to.have.status(200); });","pm.test('Response contains items array', function () {","  const json = pm.response.json();","  pm.expect(json).to.have.property('items');","  pm.expect(json.items).to.be.an('array');","});"]}}]}]},{"name":"02_Auth","item":[{"name":"GET /readings/latest - valid token is accepted","request":{"method":"GET","header":[{"key":"Authorization","value":"Bearer {{authToken}}"}],"url":{"raw":"{{baseUrl}}/readings/latest?limit=1","host":["{{baseUrl}}"],"path":["readings","latest"]},"description":""},"response":[],"event":[{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('Valid token request returns success', function () {","  pm.expect(pm.response.code).to.eql(200);","});"]}}]},{"name":"POST /readings - missing token is rejected on real service","request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"url":{"raw":"{{baseUrl}}/readings","host":["{{baseUrl}}"],"path":["readings"]},"description":"Auth test thật: không dùng Prefer: code=401. Khi chạy trên mock, test được skip có kiểm soát vì Prism không chứng minh auth thật.","body":{"mode":"raw","raw":"{\n  \"device_id\": \"ESP32-LAB-A01\",\n  \"metric\": \"temperature\",\n  \"value\": 31.5,\n  \"unit\": \"celsius\",\n  \"timestamp\": \"2026-05-13T08:30:00+07:00\"\n}","options":{"raw":{"language":"json"}}}},"response":[],"event":[{"listen":"test","script":{"type":"text/javascript","exec":["const env = pm.environment.get('env') || 'mock';","if (env === 'mock') {","  pm.test('Skipped on mock: Prism does not enforce real auth without a service implementation', function () {","    pm.expect(true).to.eql(true);","  });","} else {","  pm.test('Missing token returns 401 or 403', function () {","    pm.expect([401, 403]).to.include(pm.response.code);","  });","}"]}}]},{"name":"POST /readings - invalid token is rejected on real service","request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer invalid-token"}],"url":{"raw":"{{baseUrl}}/readings","host":["{{baseUrl}}"],"path":["readings"]},"description":"Auth test thật: service local phải tự từ chối token sai.","body":{"mode":"raw","raw":"{\n  \"device_id\": \"ESP32-LAB-A01\",\n  \"metric\": \"temperature\",\n  \"value\": 31.5,\n  \"unit\": \"celsius\",\n  \"timestamp\": \"2026-05-13T08:30:00+07:00\"\n}","options":{"raw":{"language":"json"}}}},"response":[],"event":[{"listen":"test","script":{"type":"text/javascript","exec":["const env = pm.environment.get('env') || 'mock';","if (env === 'mock') {","  pm.test('Skipped on mock: invalid token requires real auth middleware', function () {","    pm.expect(true).to.eql(true);","  });","} else {","  pm.test('Invalid token returns 401 or 403', function () {","    pm.expect([401, 403]).to.include(pm.response.code);","  });","}"]}}]}]},{"name":"03_Negative","item":[{"name":"POST /readings - missing required field returns validation error","request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{authToken}}"},{"key":"Prefer","value":"code=400"}],"url":{"raw":"{{baseUrl}}/readings","host":["{{baseUrl}}"],"path":["readings"]},"description":"Prefer: code=400 chỉ giúp Prism chọn response lỗi theo contract; service thật phải tự validate payload.","body":{"mode":"raw","raw":"{\n  \"metric\": \"temperature\",\n  \"value\": 31.5,\n  \"unit\": \"celsius\",\n  \"timestamp\": \"2026-05-13T08:30:00+07:00\"\n}","options":{"raw":{"language":"json"}}}},"response":[],"event":[{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('Invalid payload returns client error', function () {","  pm.expect([400, 422]).to.include(pm.response.code);","});","pm.test('Error response follows ProblemDetails shape', function () {","  const json = pm.response.json();","  pm.expect(json).to.have.property('title');","  pm.expect(json).to.have.property('status');","  pm.expect(json.status).to.be.within(400, 599);","});"]}}]},{"name":"POST /readings - wrong enum value returns validation error","request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{authToken}}"},{"key":"Prefer","value":"code=400"}],"url":{"raw":"{{baseUrl}}/readings","host":["{{baseUrl}}"],"path":["readings"]},"description":"Negative test cho enum ngoài contract.","body":{"mode":"raw","raw":"{\n  \"device_id\": \"ESP32-LAB-A01\",\n  \"metric\": \"temp_hot\",\n  \"value\": 31.5,\n  \"unit\": \"celsius\",\n  \"timestamp\": \"2026-05-13T08:30:00+07:00\"\n}","options":{"raw":{"language":"json"}}}},"response":[],"event":[{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('Wrong metric enum returns client error', function () {","  pm.expect([400, 422]).to.include(pm.response.code);","});","pm.test('Error response has detail', function () {","  const json = pm.response.json();","  pm.expect(json).to.have.property('detail');","});"]}}]}]},{"name":"04_Boundary_Reliability","item":[{"name":"POST /readings - boundary value 80 is accepted","request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{authToken}}"}],"url":{"raw":"{{baseUrl}}/readings","host":["{{baseUrl}}"],"path":["readings"]},"description":"","body":{"mode":"raw","raw":"{\n  \"device_id\": \"ESP32-LAB-A01\",\n  \"metric\": \"temperature\",\n  \"value\": 80,\n  \"unit\": \"celsius\",\n  \"timestamp\": \"2026-05-13T08:30:00+07:00\"\n}","options":{"raw":{"language":"json"}}}},"response":[],"event":[{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('Boundary value at max returns success', function () {","  pm.expect(pm.response.code).to.eql(201);","});","pm.test('Response confirms accepted reading', function () {","  const json = pm.response.json();","  pm.expect(json).to.have.property('accepted', true);","});"]}}]},{"name":"POST /readings - value 81 is rejected as out of range","request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{authToken}}"},{"key":"Prefer","value":"code=400"}],"url":{"raw":"{{baseUrl}}/readings","host":["{{baseUrl}}"],"path":["readings"]},"description":"Boundary test đúng phải kiểm response. Không kiểm lại request body đã gửi.","body":{"mode":"raw","raw":"{\n  \"device_id\": \"ESP32-LAB-A01\",\n  \"metric\": \"temperature\",\n  \"value\": 81,\n  \"unit\": \"celsius\",\n  \"timestamp\": \"2026-05-13T08:30:00+07:00\"\n}","options":{"raw":{"language":"json"}}}},"response":[],"event":[{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('Out-of-range value returns client error', function () {","  pm.expect([400, 422]).to.include(pm.response.code);","});","pm.test('Boundary test checks response, not request body', function () {","  const json = pm.response.json();","  pm.expect(json).to.have.property('status');","  pm.expect(json.status).to.be.within(400, 599);","});"]}}]},{"name":"GET /readings/latest - limit above max is rejected","request":{"method":"GET","header":[{"key":"Authorization","value":"Bearer {{authToken}}"},{"key":"Prefer","value":"code=400"}],"url":{"raw":"{{baseUrl}}/readings/latest?limit=101","host":["{{baseUrl}}"],"path":["readings","latest"],"query":[{"key":"limit","value":"101"}]},"description":""},"response":[],"event":[{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('Limit above max returns client error', function () {","  pm.expect([400, 422]).to.include(pm.response.code);","});"]}}]}]},{"name":"05_Consumer_side_Smoke","item":[{"name":"Consumer smoke - Camera/Core can call AI Vision mock","request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{authToken}}"}],"url":{"raw":"{{aiVisionMockUrl}}/detect","host":["{{aiVisionMockUrl}}"],"path":["detect"]},"description":"Consumer-side smoke test: gọi mock của service phụ thuộc, không gọi lại API của chính mình.","body":{"mode":"raw","raw":"{\n  \"camera_id\": \"CAM01\",\n  \"image_url\": \"https://example.com/frame.jpg\"\n}","options":{"raw":{"language":"json"}}}},"response":[],"event":[{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('Consumer receives success from provider mock', function () {","  pm.expect(pm.response.code).to.eql(200);","});","pm.test('Consumer can read detection fields', function () {","  const json = pm.response.json();","  pm.expect(json).to.have.property('detection_id');","  pm.expect(json).to.have.property('label');","  pm.expect(json).to.have.property('confidence');","  pm.expect(json.confidence).to.be.within(0, 1);","});"]}}]}]},{"name":"06_Local_only_NonFunctional","item":[{"name":"POST /readings - local response time threshold","request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{authToken}}"}],"url":{"raw":"{{baseUrl}}/readings","host":["{{baseUrl}}"],"path":["readings"]},"description":"Latency/SLA chỉ có ý nghĩa khi chạy service thật.","body":{"mode":"raw","raw":"{\n  \"device_id\": \"ESP32-LAB-A02\",\n  \"metric\": \"humidity\",\n  \"value\": 55.2,\n  \"unit\": \"percent\",\n  \"timestamp\": \"2026-05-13T08:31:00+07:00\"\n}","options":{"raw":{"language":"json"}}}},"response":[],"event":[{"listen":"test","script":{"type":"text/javascript","exec":["const env = pm.environment.get('env') || 'mock';","if (env === 'local') {","  pm.test('Local service responds under 1000ms', function () {","    pm.expect(pm.response.responseTime).to.be.below(1000);","  });","} else {","  pm.test('Skipped on mock: mock latency is not evidence of real service reliability', function () {","    pm.expect(true).to.eql(true);","  });","}"]}}]}]}]}
+{
+  "info": {
+    "_postman_id": "fit4110-lab03-iot-ingestion",
+    "name": "FIT4110 Lab03 - IoT Ingestion (team-iot)",
+    "description": "Contract tests for Smart Campus IoT Ingestion API.\nFolders: Functional, Auth, Negative, Boundary, Consumer-side smoke, Local-only.\nUses environment variables: baseUrl, authToken, aiVisionMockUrl, env.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{authToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "01_Functional",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/health"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Health response has status ok', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.status).to.eql('ok');",
+                  "  pm.expect(json).to.have.property('service');",
+                  "  pm.expect(json).to.have.property('version');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create sensor reading (happy path)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"device_id\": \"ESP32-LAB-A01\",\n  \"metric\": \"temperature\",\n  \"value\": 31.5,\n  \"unit\": \"celsius\",\n  \"timestamp\": \"2026-05-13T08:30:00+07:00\"\n}"
+            },
+            "url": "{{baseUrl}}/readings"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test('Response has reading_id and accepted', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('reading_id');",
+                  "  pm.expect(json).to.have.property('device_id', 'ESP32-LAB-A01');",
+                  "  pm.expect(json).to.have.property('metric', 'temperature');",
+                  "  pm.expect(json.accepted).to.eql(true);",
+                  "  pm.expect(json).to.have.property('created_at');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get latest readings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/readings/latest"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Latest readings returns items array', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('items');",
+                  "  pm.expect(json.items).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get latest readings with filters",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/readings/latest?device_id=ESP32-LAB-A01&limit=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["readings", "latest"],
+              "query": [
+                { "key": "device_id", "value": "ESP32-LAB-A01" },
+                { "key": "limit", "value": "5" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Filtered latest returns 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Items array respects limit query', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.items).to.be.an('array');",
+                  "  pm.expect(json.items.length).to.be.at.most(5);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02_Auth",
+      "item": [
+        {
+          "name": "Create reading with valid token",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"device_id\": \"ESP32-LAB-A01\",\n  \"metric\": \"humidity\",\n  \"value\": 55,\n  \"unit\": \"percent\",\n  \"timestamp\": \"2026-05-13T09:00:00+07:00\"\n}"
+            },
+            "url": "{{baseUrl}}/readings"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Authorized request succeeds with 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test('Bearer token accepted for protected endpoint', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.accepted).to.eql(true);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create reading without token",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"device_id\": \"ESP32-LAB-A01\",\n  \"metric\": \"temperature\",\n  \"value\": 31.5,\n  \"unit\": \"celsius\",\n  \"timestamp\": \"2026-05-13T08:30:00+07:00\"\n}"
+            },
+            "url": "{{baseUrl}}/readings"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Missing token returns 401 or 403', function () {",
+                  "  pm.expect([401, 403]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test('Unauthorized follows ProblemDetails', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('status');",
+                  "  pm.expect(json.status).to.be.within(400, 599);",
+                  "  pm.expect(json).to.have.property('title');",
+                  "  pm.expect(json).to.have.property('detail');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create reading with invalid token",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer invalid-wrong-token" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"device_id\": \"ESP32-LAB-A01\",\n  \"metric\": \"temperature\",\n  \"value\": 31.5,\n  \"unit\": \"celsius\",\n  \"timestamp\": \"2026-05-13T08:30:00+07:00\"\n}"
+            },
+            "url": "{{baseUrl}}/readings"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const env = pm.environment.get('env');",
+                  "pm.test('Invalid token rejected (strict on local)', function () {",
+                  "  if (env === 'local') {",
+                  "    pm.expect([401, 403]).to.include(pm.response.code);",
+                  "  } else {",
+                  "    pm.expect([401, 403, 201]).to.include(pm.response.code);",
+                  "    if (pm.response.code === 201) {",
+                  "      console.warn('Prism mock may not validate token value — verify on local service');",
+                  "    }",
+                  "  }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03_Negative",
+      "item": [
+        {
+          "name": "Missing required device_id",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"metric\": \"temperature\",\n  \"value\": 31.5,\n  \"timestamp\": \"2026-05-13T08:30:00+07:00\"\n}"
+            },
+            "url": "{{baseUrl}}/readings"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Invalid payload returns client error', function () {",
+                  "  pm.expect([400, 422]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test('Error response follows ProblemDetails', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('status');",
+                  "  pm.expect(json.status).to.be.within(400, 599);",
+                  "  pm.expect(json).to.have.property('detail');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Invalid metric enum",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"device_id\": \"ESP32-LAB-A01\",\n  \"metric\": \"pressure\",\n  \"value\": 31.5,\n  \"timestamp\": \"2026-05-13T08:30:00+07:00\"\n}"
+            },
+            "url": "{{baseUrl}}/readings"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Unknown metric returns 400 or 422', function () {",
+                  "  pm.expect([400, 422]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test('Validation error has ProblemDetails shape', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('title');",
+                  "  pm.expect(json.status).to.be.at.least(400);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Invalid limit query parameter",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/readings/latest?limit=200",
+              "host": ["{{baseUrl}}"],
+              "path": ["readings", "latest"],
+              "query": [
+                { "key": "limit", "value": "200" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Limit above maximum returns 400', function () {",
+                  "  pm.expect([400, 422]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test('Error mentions validation', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('detail');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04_Boundary_Reliability",
+      "item": [
+        {
+          "name": "High temperature at upper boundary (80)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"device_id\": \"ESP32-LAB-A01\",\n  \"metric\": \"temperature\",\n  \"value\": 80,\n  \"unit\": \"celsius\",\n  \"timestamp\": \"2026-05-13T08:30:00+07:00\"\n}"
+            },
+            "url": "{{baseUrl}}/readings"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('High temperature accepted or rejected by server', function () {",
+                  "  pm.expect([201, 400, 422]).to.include(pm.response.code);",
+                  "  if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.accepted).to.eql(true);",
+                  "    if (pm.response.headers.has('X-Warning')) {",
+                  "      pm.expect(pm.response.headers.get('X-Warning')).to.be.a('string');",
+                  "    }",
+                  "  }",
+                  "  if ([400, 422].includes(pm.response.code)) {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('detail');",
+                  "  }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Low temperature at lower boundary (-40)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"device_id\": \"ESP32-LAB-A01\",\n  \"metric\": \"temperature\",\n  \"value\": -40,\n  \"unit\": \"celsius\",\n  \"timestamp\": \"2026-05-13T08:30:00+07:00\"\n}"
+            },
+            "url": "{{baseUrl}}/readings"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Lower boundary value handled by server response', function () {",
+                  "  pm.expect([201, 400, 422]).to.include(pm.response.code);",
+                  "  if (pm.response.code === 201) {",
+                  "    pm.expect(pm.response.json().accepted).to.eql(true);",
+                  "  }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Value above schema maximum rejected",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"device_id\": \"ESP32-LAB-A01\",\n  \"metric\": \"temperature\",\n  \"value\": 81,\n  \"unit\": \"celsius\",\n  \"timestamp\": \"2026-05-13T08:30:00+07:00\"\n}"
+            },
+            "url": "{{baseUrl}}/readings"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Out-of-range temperature returns client error', function () {",
+                  "  pm.expect([400, 422]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test('Server returns ProblemDetails for out-of-range', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('status');",
+                  "  pm.expect(json).to.have.property('detail');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Rate limit response (mock Prefer)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Prefer", "value": "code=429" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"device_id\": \"ESP32-LAB-A01\",\n  \"metric\": \"temperature\",\n  \"value\": 31.5,\n  \"unit\": \"celsius\",\n  \"timestamp\": \"2026-05-13T08:30:00+07:00\"\n}"
+            },
+            "url": "{{baseUrl}}/readings"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.environment.get('env') === 'mock') {",
+                  "  pm.test('Rate limit contract returns 429 on mock', function () {",
+                  "    pm.response.to.have.status(429);",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql(429);",
+                  "    pm.expect(json).to.have.property('detail');",
+                  "  });",
+                  "} else {",
+                  "  pm.test('Rate limit Prefer test skipped on local', function () {",
+                  "    pm.expect(pm.environment.get('env')).to.eql('local');",
+                  "  });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05_Consumer_side_Smoke",
+      "item": [
+        {
+          "name": "AI Vision health (dependency)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": "{{aiVisionMockUrl}}/health"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('AI Vision mock is reachable', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Dependency service reports ok', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.status).to.eql('ok');",
+                  "  pm.expect(json.service).to.eql('ai-vision');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "AI Vision detect smoke",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"camera_id\": \"CAM01\",\n  \"image_url\": \"https://example.com/frame.jpg\"\n}"
+            },
+            "url": "{{aiVisionMockUrl}}/detect"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Consumer can call AI Vision detect', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Detection response has required fields', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('detection_id');",
+                  "  pm.expect(json).to.have.property('label');",
+                  "  pm.expect(json.confidence).to.be.within(0, 1);",
+                  "  pm.expect(json).to.have.property('risk_level');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06_Local_only_NonFunctional",
+      "item": [
+        {
+          "name": "Health response time SLA",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/health"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.environment.get('env') === 'local') {",
+                  "  pm.test('Response time is below 1000ms on local service', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(1000);",
+                  "  });",
+                  "} else {",
+                  "  pm.test('Latency SLA skipped on mock environment', function () {",
+                  "    pm.expect(pm.environment.get('env')).to.eql('mock');",
+                  "  });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

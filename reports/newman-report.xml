@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="FIT4110 Lab03 - IoT Ingestion (team-iot)" tests="17" time="0.499">
+  <testsuite name="01_Functional / Health check" id="d45fc8d8-3f8b-4d05-85df-86071c71da2d" timestamp="2026-05-23T11:17:12.188Z" tests="2" failures="0" errors="0" time="0.139">
+    <testcase name="Status code is 200" time="0.139" classname="01FunctionalHealthCheck"/>
+    <testcase name="Health response has status ok" time="0.139" classname="01FunctionalHealthCheck"/>
+  </testsuite>
+  <testsuite name="01_Functional / Create sensor reading (happy path)" id="a5c8b841-d0ef-4ce7-a1e4-4687fe5f3e4d" timestamp="2026-05-23T11:17:12.188Z" tests="2" failures="0" errors="0" time="0.025">
+    <testcase name="Status code is 201" time="0.025" classname="01FunctionalCreateSensorReadingHappyPath"/>
+    <testcase name="Response has reading_id and accepted" time="0.025" classname="01FunctionalCreateSensorReadingHappyPath"/>
+  </testsuite>
+  <testsuite name="01_Functional / Get latest readings" id="6fb21653-12eb-4aa9-8e3d-b7b45980a9bb" timestamp="2026-05-23T11:17:12.188Z" tests="2" failures="0" errors="0" time="0.012">
+    <testcase name="Status code is 200" time="0.012" classname="01FunctionalGetLatestReadings"/>
+    <testcase name="Latest readings returns items array" time="0.012" classname="01FunctionalGetLatestReadings"/>
+  </testsuite>
+  <testsuite name="01_Functional / Get latest readings with filters" id="052b39ac-9a77-4457-a59f-f2f9cdfcd190" timestamp="2026-05-23T11:17:12.188Z" tests="2" failures="0" errors="0" time="0.013">
+    <testcase name="Filtered latest returns 200" time="0.013" classname="01FunctionalGetLatestReadingsWithFilters"/>
+    <testcase name="Items array respects limit query" time="0.013" classname="01FunctionalGetLatestReadingsWithFilters"/>
+  </testsuite>
+  <testsuite name="02_Auth / Create reading with valid token" id="0ac55f59-e08e-4f8a-a79f-67a906579554" timestamp="2026-05-23T11:17:12.188Z" tests="2" failures="0" errors="0" time="0.006">
+    <testcase name="Authorized request succeeds with 201" time="0.006" classname="02AuthCreateReadingWithValidToken"/>
+    <testcase name="Bearer token accepted for protected endpoint" time="0.006" classname="02AuthCreateReadingWithValidToken"/>
+  </testsuite>
+  <testsuite name="02_Auth / Create reading without token" id="52210b85-afe9-4ca5-80c2-9107898c4085" timestamp="2026-05-23T11:17:12.188Z" tests="2" failures="0" errors="0" time="0.013">
+    <testcase name="Missing token returns 401 or 403" time="0.013" classname="02AuthCreateReadingWithoutToken"/>
+    <testcase name="Unauthorized follows ProblemDetails" time="0.013" classname="02AuthCreateReadingWithoutToken"/>
+  </testsuite>
+  <testsuite name="02_Auth / Create reading with invalid token" id="78b09d70-3202-42bf-955f-9e4daab6f626" timestamp="2026-05-23T11:17:12.188Z" tests="1" failures="0" errors="0" time="0.014">
+    <testcase name="Invalid token rejected (strict on local)" time="0.014" classname="02AuthCreateReadingWithInvalidToken"/>
+  </testsuite>
+  <testsuite name="03_Negative / Missing required device_id" id="54ee08d0-f6a4-46b3-ad66-c084b2769212" timestamp="2026-05-23T11:17:12.188Z" tests="2" failures="0" errors="0" time="0.011">
+    <testcase name="Invalid payload returns client error" time="0.011" classname="03NegativeMissingRequiredDeviceId"/>
+    <testcase name="Error response follows ProblemDetails" time="0.011" classname="03NegativeMissingRequiredDeviceId"/>
+  </testsuite>
+  <testsuite name="03_Negative / Invalid metric enum" id="541881e5-272b-4370-8db9-57c73fac7a7c" timestamp="2026-05-23T11:17:12.188Z" tests="2" failures="0" errors="0" time="0.011">
+    <testcase name="Unknown metric returns 400 or 422" time="0.011" classname="03NegativeInvalidMetricEnum"/>
+    <testcase name="Validation error has ProblemDetails shape" time="0.011" classname="03NegativeInvalidMetricEnum"/>
+  </testsuite>
+  <testsuite name="03_Negative / Invalid limit query parameter" id="29f88c01-5059-4313-81df-5bb366ece24f" timestamp="2026-05-23T11:17:12.188Z" tests="2" failures="0" errors="0" time="0.011">
+    <testcase name="Limit above maximum returns 400" time="0.011" classname="03NegativeInvalidLimitQueryParameter"/>
+    <testcase name="Error mentions validation" time="0.011" classname="03NegativeInvalidLimitQueryParameter"/>
+  </testsuite>
+  <testsuite name="04_Boundary_Reliability / High temperature at upper boundary (80)" id="19eda009-958e-4255-96f3-6cf33f81ddd2" timestamp="2026-05-23T11:17:12.188Z" tests="1" failures="0" errors="0" time="0.012">
+    <testcase name="High temperature accepted or rejected by server" time="0.012" classname="04BoundaryReliabilityHighTemperatureAtUpperBoundary80"/>
+  </testsuite>
+  <testsuite name="04_Boundary_Reliability / Low temperature at lower boundary (-40)" id="3fa64c31-cecc-49c6-96c1-0928620d40a1" timestamp="2026-05-23T11:17:12.188Z" tests="1" failures="0" errors="0" time="0.006">
+    <testcase name="Lower boundary value handled by server response" time="0.006" classname="04BoundaryReliabilityLowTemperatureAtLowerBoundary40"/>
+  </testsuite>
+  <testsuite name="04_Boundary_Reliability / Value above schema maximum rejected" id="0e22a5b3-fd74-426d-be7d-4a40d5c97cfe" timestamp="2026-05-23T11:17:12.188Z" tests="2" failures="0" errors="0" time="0.006">
+    <testcase name="Out-of-range temperature returns client error" time="0.006" classname="04BoundaryReliabilityValueAboveSchemaMaximumRejected"/>
+    <testcase name="Server returns ProblemDetails for out-of-range" time="0.006" classname="04BoundaryReliabilityValueAboveSchemaMaximumRejected"/>
+  </testsuite>
+  <testsuite name="04_Boundary_Reliability / Rate limit response (mock Prefer)" id="513f4555-e9ab-41fc-9e78-0ad9649388d3" timestamp="2026-05-23T11:17:12.188Z" tests="1" failures="0" errors="0" time="0.005">
+    <testcase name="Rate limit contract returns 429 on mock" time="0.005" classname="04BoundaryReliabilityRateLimitResponseMockPrefer"/>
+  </testsuite>
+  <testsuite name="05_Consumer_side_Smoke / AI Vision health (dependency)" id="dc8a90d5-4982-4f32-93c6-ec985f182e21" timestamp="2026-05-23T11:17:12.188Z" tests="2" failures="0" errors="0" time="0.181">
+    <testcase name="AI Vision mock is reachable" time="0.181" classname="05ConsumerSideSmokeAiVisionHealthDependency"/>
+    <testcase name="Dependency service reports ok" time="0.181" classname="05ConsumerSideSmokeAiVisionHealthDependency"/>
+  </testsuite>
+  <testsuite name="05_Consumer_side_Smoke / AI Vision detect smoke" id="f58cb851-088c-45cc-90e5-f942ffb1ed23" timestamp="2026-05-23T11:17:12.188Z" tests="2" failures="0" errors="0" time="0.026">
+    <testcase name="Consumer can call AI Vision detect" time="0.026" classname="05ConsumerSideSmokeAiVisionDetectSmoke"/>
+    <testcase name="Detection response has required fields" time="0.026" classname="05ConsumerSideSmokeAiVisionDetectSmoke"/>
+  </testsuite>
+  <testsuite name="06_Local_only_NonFunctional / Health response time SLA" id="1ab4587f-c6aa-4b33-bd58-5ae589fb94e6" timestamp="2026-05-23T11:17:12.188Z" tests="1" failures="0" errors="0" time="0.008">
+    <testcase name="Latency SLA skipped on mock environment" time="0.008" classname="06LocalOnlyNonFunctionalHealthResponseTimeSla"/>
+  </testsuite>
+</testsuites>

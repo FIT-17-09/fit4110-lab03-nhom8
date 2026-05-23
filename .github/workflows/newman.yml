@@ -23,7 +23,9 @@ jobs:
         run: npm install
 
       - name: Lint OpenAPI contracts
-        run: npm run lint:contracts
+        run: |
+          npm run lint:contracts
+          npm run lint:report
 
       - name: Start Prism mock servers
         run: |
