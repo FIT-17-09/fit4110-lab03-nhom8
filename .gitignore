@@ -4,3 +4,4 @@ node_modules/
 reports/*.xml
 reports/*.html
 prism.log
+prism-*.verify*.log
